@@ -24,24 +24,25 @@ import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuild
 import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
 @Configuration
-@EnableScheduling
+// @EnableScheduling
 @EnableBatchProcessing
 public class ScheduledImportUserBatchConfiguration {
     @Autowired
     private JobLauncher jobLauncher;
 
     @Autowired
-    private Job scheduledImporUserJob;
+    @Qualifier(value = "scheduledImportUserJob")
+    private Job scheduledImportUserJob;
 
     @Scheduled(fixedRate = 60000)
     public void perform() throws JobExecutionAlreadyRunningException, JobRestartException, JobInstanceAlreadyCompleteException, JobParametersInvalidException {
@@ -51,7 +52,7 @@ public class ScheduledImportUserBatchConfiguration {
             .addString("jobID", String.valueOf(System.currentTimeMillis()))
             .toJobParameters();
 
-        jobLauncher.run(scheduledImporUserJob, params);
+        jobLauncher.run(scheduledImportUserJob, params);
     }
     
     public DataSource getReadDataSource() {
@@ -64,7 +65,7 @@ public class ScheduledImportUserBatchConfiguration {
     }
 
     @Bean
-    public JdbcCursorItemReader<Person> getUserDatabaseReader() {
+    public JdbcCursorItemReader<Person> userDatabaseReader() {
         return new JdbcCursorItemReaderBuilder<Person>()
             .name("userReader")
             .dataSource(getReadDataSource())
@@ -86,7 +87,7 @@ public class ScheduledImportUserBatchConfiguration {
     }
 
     @Bean
-    public PersonItemProcessor getItemProcessor() {
+    public PersonItemProcessor personItemProcessor() {
         return new PersonItemProcessor();
     }
 
@@ -95,7 +96,7 @@ public class ScheduledImportUserBatchConfiguration {
     }
 
     @Bean
-    public FlatFileItemWriter<Person> getUserCsvWriter() {
+    public FlatFileItemWriter<Person> userCsvWriter() {
         return new FlatFileItemWriterBuilder<Person>()
             .name("userWriter")
             .resource(getWriteResource())
@@ -104,7 +105,7 @@ public class ScheduledImportUserBatchConfiguration {
             .build();
     }
 
-    @Bean
+    @Bean(value = "scheduledImportUserJob")
     public Job scheduledImportUserJob(JobBuilderFactory jobBuilderFactory, Step scheduledImportUserStep) {
         return jobBuilderFactory.get("scheduledImportUserJob")
             .incrementer(new RunIdIncrementer())
@@ -114,13 +115,13 @@ public class ScheduledImportUserBatchConfiguration {
     }
 
     @Bean
-    public Step step1(StepBuilderFactory stepBuilderFactory) {
+    public Step scheduledImportUserStep(StepBuilderFactory stepBuilderFactory) {
         return stepBuilderFactory
             .get("scheduledImportUserStep")
             .<Person, Person> chunk(5)
-            .reader(getUserDatabaseReader())
-            .processor(getItemProcessor())
-            .writer(getUserCsvWriter())
+            .reader(userDatabaseReader())
+            .processor(personItemProcessor())
+            .writer(userCsvWriter())
             .build();
     }
 }
