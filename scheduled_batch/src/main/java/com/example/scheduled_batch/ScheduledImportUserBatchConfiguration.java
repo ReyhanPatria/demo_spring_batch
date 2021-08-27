@@ -31,10 +31,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
 @Configuration
-// @EnableScheduling
+@EnableScheduling
 @EnableBatchProcessing
 public class ScheduledImportUserBatchConfiguration {
     @Autowired
@@ -64,6 +65,10 @@ public class ScheduledImportUserBatchConfiguration {
             .build();
     }
 
+    public Resource getWriteResource() {
+        return new FileSystemResource("output/data.csv");
+    }
+
     @Bean
     public JdbcCursorItemReader<Person> userDatabaseReader() {
         return new JdbcCursorItemReaderBuilder<Person>()
@@ -91,10 +96,6 @@ public class ScheduledImportUserBatchConfiguration {
         return new PersonItemProcessor();
     }
 
-    public Resource getWriteResource() {
-        return new FileSystemResource("output/data.csv");
-    }
-
     @Bean
     public FlatFileItemWriter<Person> userCsvWriter() {
         return new FlatFileItemWriterBuilder<Person>()
@@ -102,15 +103,6 @@ public class ScheduledImportUserBatchConfiguration {
             .resource(getWriteResource())
             .delimited()
             .names("name", "email", "gender", "phone")
-            .build();
-    }
-
-    @Bean(value = "scheduledImportUserJob")
-    public Job scheduledImportUserJob(JobBuilderFactory jobBuilderFactory, Step scheduledImportUserStep) {
-        return jobBuilderFactory.get("scheduledImportUserJob")
-            .incrementer(new RunIdIncrementer())
-            .flow(scheduledImportUserStep)
-            .end()
             .build();
     }
 
@@ -122,6 +114,15 @@ public class ScheduledImportUserBatchConfiguration {
             .reader(userDatabaseReader())
             .processor(personItemProcessor())
             .writer(userCsvWriter())
+            .build();
+    }
+
+    @Bean(value = "scheduledImportUserJob")
+    public Job scheduledImportUserJob(JobBuilderFactory jobBuilderFactory, Step scheduledImportUserStep) {
+        return jobBuilderFactory.get("scheduledImportUserJob")
+            .incrementer(new RunIdIncrementer())
+            .flow(scheduledImportUserStep)
+            .end()
             .build();
     }
 }
